@@ -115,11 +115,11 @@ In my case this style contains
 2022-07-20 Added monochrome LUTs and styles  
 2022-07-20 Various fixes by Teh-Lemon  
 2022-07-17 Updated LUTs with correct indexing, for markedly improved colors.
--- GRAZIANO LOG
-2024-05-18 Modified command string for windows
-2024-04-18 Changed calling of styles to group them under a single "Fujiflm-Autosetting" group  
-2024-04-18 Inserted call for "Gra|Base" style application with default corrections
-2023-05-23 Changed reading metadata in a single Exiftool call to improve performance
+-- GRAZIANO LOG.
+2024-05-18 Modified command string for windows.
+2024-04-18 Changed calling of styles to group them under a single "Fujiflm-Autosetting" group. 
+2024-04-18 Inserted call for "Gra|Base" style application with default corrections.
+2023-05-23 Changed reading metadata in a single Exiftool call to improve performance.
 
 ## Known Issues
 
