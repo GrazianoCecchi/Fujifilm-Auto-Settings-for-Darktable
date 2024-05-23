@@ -98,12 +98,28 @@ Of course this can only work for properly exposed images, and even
 then might not be perfectly reliable. But it usually gets the images
 in the right ballpark in my testing.
 
+
+A style called "Gra|Base" is also applied which contains all the default corrections 
+that I have established the imported photos should have. 
+In my case this style contains
+ - Sharpness
+ - Lens correction
+ - Profiled noise reduction
+ - Color balance RGB (with slight contrast and a bit of shine)
+ - Local contrast
+
+
 ## Changelog
 
 2022-07-20 Only call exiftool once, to speed up operation  
 2022-07-20 Added monochrome LUTs and styles  
 2022-07-20 Various fixes by Teh-Lemon  
 2022-07-17 Updated LUTs with correct indexing, for markedly improved colors.
+-- GRAZIANO LOG
+2024-05-18 Modified command string for windows
+2024-04-18 Changed calling of styles to group them under a single "Fujiflm-Autosetting" group  
+2024-04-18 Inserted call for "Gra|Base" style application with default corrections
+2023-05-23 Changed reading metadata in a single Exiftool call to improve performance
 
 ## Known Issues
 
@@ -113,6 +129,8 @@ pushing saturation too far may result in incorrect colors. Apply a
 parametric mask that excludes high Cz if this becomes a problem.
 
 In particular, oversaturated colors will turn grey in the sepia LUT.
+
+My version of this script was only tested on a Fujifilm XT4 and Windows 11
 
 ## License
 
