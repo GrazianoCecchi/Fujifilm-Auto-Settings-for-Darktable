@@ -115,6 +115,7 @@ In my case this style contains
 2022-07-20 Added monochrome LUTs and styles  
 2022-07-20 Various fixes by Teh-Lemon  
 2022-07-17 Updated LUTs with correct indexing, for markedly improved colors.
+
 -- GRAZIANO LOG.
 2022-07-17 Updated LUTs with correct indexing, for markedly improved colors.
 2024-05-18 Modified command string for windows.
