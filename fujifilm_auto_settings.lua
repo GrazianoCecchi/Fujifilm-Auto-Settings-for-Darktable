@@ -1,4 +1,4 @@
---[[ fujifilm_auto_settings-0.4
+--[[ fujifilm_auto_settings-0.2
 
 Apply Fujifilm film simulations, in-camera crop mode, and dynamic range.
 
@@ -26,6 +26,18 @@ chosen dynamic range setting in camera.
 
 Dependencies:
 - exiftool (https://www.sno.phy.queensu.ca/~phil/exiftool/)
+- Fuji LUTs (https://blog.sowerby.me/fuji-film-simulation-profiles/)
+
+Debug:
+To debug this script you need to launch DarkTable with this command:
+
+"C:\Program Files\darktable\bin\darktable" -d lua > log.txt
+
+The output can be read in the log.txt file located in the directory 
+from which the startup command was launched
+
+
+
 
 Based on fujifim_dynamic_range by Dan Torop.
 
@@ -37,13 +49,12 @@ or Velvia or Classic Chrome. Indeed it is my experience that they rely
 on these film simulations for accurate colors.
 
 Darktable however does not know about or implement these film
-simulations. But I created a set of LUTs that emulate them. The LUTs
-were created from a set of training images on an X-T3, and generated
-using https://github.com/bastibe/LUT-Maker.
+simulations. But they are available to download from Stuart Sowerby as
+3DL LUTs. (PNG LUTs are also available, but they show a strange
+posterization artifact when loaded in Darktable, which the 3DLs do
+not).
 
-In order to apply the film simulations, this plugin loads one of a
-number of styles, which are available for download as part of this
-repository:
+In order to use this plugin, you must prepare a number of styles:
 - provia
 - astia
 - velvia
@@ -61,14 +72,12 @@ repository:
 - mono
 - sepia
 
-These styles apply the chosen film simulation by loading one of the
-supplied LUTs. You can replace them with styles of the same name that
-implement the film simulations in some other way.
+These styles should apply the according film simulation in a method of
+your choosing.
 
-This plugin checks the image's "Film Mode" EXIF parameter for the
-color film simulation, and "Saturation" for the black-and-white film
-simulation, and applies the appropriate style. If no matching style
-exists, no action is taken and no harm is done.
+This plugin checks the image's "Film Mode" exif parameter, and applies
+the appropriate style. If no matching style exists, no action is taken
+and no harm is done.
 
   Crop Factor
   -----------
@@ -79,14 +88,15 @@ ratios: 2:3 (default), 16:9, and 1:1.
 This plugin checks the image's "Raw Image Aspect Ratio" exif
 parameter, and applies the appropriate style.
 
-To use, the repository contains another set of styles:
+To use, prepare another four styles:
 - square_crop_portrait
 - square_crop_landscape
 - sixteen_by_nine_crop_portrait
 - sixteen_by_nine_crop_landscape
 
-These styles should apply a square crop and a 16:9 crop. If no
-matching style exists, no action is taken and no harm is done.
+These styles should apply a square crop and a 16:9 crop to
+portrait/landscape images. If no matching style exists, no action is
+taken and no harm is done.
 
   Dynamic Range
   -------------
@@ -108,8 +118,8 @@ exposure by one/two stops over the lower half of the sliders, then
 ramping to zero at 0 EV. If no matching styles exist, no action is
 taken and no harm is done.
 
-These tags have been checked on a Fujifilm X-A5, X-T3, X-T20 and
-X-Pro2. Other cameras may behave in other ways.
+These tags have been checked on a Fujifilm X-T3 and X-Pro2. Other
+cameras may behave in other ways.
 
 --]]
 
@@ -127,30 +137,119 @@ script_data.destroy = nil -- function to destory the script
 script_data.destroy_method = nil -- set to hide for libs since we can't destroy them completely yet, otherwise leave as nil
 script_data.restart = nil -- how to restart the (lib) script after it's been hidden - i.e. make it visible again
 
-local function exiftool(RAF_filename)
-    local exiftool_command = df.check_if_bin_exists("exiftool")
-    assert(exiftool_command, "[fujifilm_auto_settings] exiftool not found")
-    local command = exiftool_command .. " -t " .. RAF_filename
-    -- on Windows, wrap the command in another pair of quotes:
-    if exiftool_command:find(".exe") then
-        command = '"' .. command .. '"'
-    end
-    dt.print_log("[fujifilm_auto_settings] executing " .. command)
 
-    -- parse the output of exiftool into a table:
+local AutoDynamicRange = nil
+local DevelopmentDynamicRange = nil
+local AspectRatio = nil
+local FilmMode = nil
+
+
+local function exiftool_get(exiftool_command, RAF_filename, flag)
+    
+    local command ='"' .. exiftool_command .. " " .. flag .. " -t " .. RAF_filename .. '"'
+    dt.print_log(command)
     local output = io.popen(command)
-    local exifdata = {}
-    for line in output:lines("l") do
-        local key, value = line:match("^%s*(.-)\t(.-)%s*$")
-        if key ~= nil and value ~= nil then
-            exifdata[key] = value
-        end
+    local exiftool_result = output:read("*all")
+    output:close()
+    if #exiftool_result == 0 then
+        dt.print_error("[fujifilm_auto_settings] no output returned by exiftool")
+        return
     end
+    local exiftool_result = string.match(exiftool_result, "\t(.*)")
+    if not exiftool_result then
+        dt.print_error("[fujifilm_auto_settings] could not parse exiftool output")
+        return
+    end
+    exiftool_result = exiftool_result:match("^%s*(.-)%s*$") -- strip whitespace
+    return exiftool_result
+end
+
+local function exiftool_total_get(exiftool_command, RAF_filename)
+    local command ='"' .. exiftool_command .. " -AutoDynamicRange -DevelopmentDynamicRange -RawImageAspectRatio -FilmMode -t " .. RAF_filename .. '"'
+    dt.print_log(command)
+    
+    local output = io.popen(command)
+
+    local exiftool_result = output:read("*all")
     output:close()
 
-    assert(next(exifdata) ~= nil, "[fujifilm_auto_settings] no output returned by exiftool")
-    return exifdata
+    print("---------------------------------------------------------------------------------------------------------------------------")
+    print(exiftool_result)
+    print("---------------------------------------------------------------------------------------------------------------------------")
+
+    if #exiftool_result == 0 then
+        dt.print_error("[fujifilm_auto_settings] no output returned by exiftool")
+        return
+    end
+    --local exiftool_result = string.match(exiftool_result, "\t(.*)")
+    if not exiftool_result then
+        dt.print_error("[fujifilm_auto_settings] could not parse exiftool output")
+        return
+    end
+    exiftool_result = exiftool_result:match("^%s*(.-)%s*$") -- strip whitespace
+    
+
+
+-- Estrai il campo "Auto Dynamic Range"
+    
+    AutoDynamicRange = exiftool_result:match("Auto Dynamic Range%s+(%d+)")
+    if AutoDynamicRange ~= nil then
+        local P = "Auto Dynamic Range =  \t\t" .. AutoDynamicRange
+        print(P)
+    else 
+        print("Auto Dynamic Range = \t\t---")
+
+    end
+    print("---------------------------------------------------------------------------------------------------------------------------")
+-- Estrai il campo "Development Dynamic Range"
+    DevelopmentDynamicRange = exiftool_result:match("Development Dynamic Range%s+(%d+)")
+   
+    if DevelopmentDynamicRange ~= nil then
+        DevelopmentDynamicRange = DevelopmentDynamicRange .. "%"
+        local P = "Development Dynamic Range =  \t" .. DevelopmentDynamicRange
+        print(P)
+
+    else 
+        print("DevelopmentDynamicRange = \t---")
+    end
+    print("---------------------------------------------------------------------------------------------------------------------------")
+
+
+    
+    -- Estrai il campo "Raw Image Aspect Ratio"
+    AspectRatio = exiftool_result:match("Raw Image Aspect Ratio%s+(%d+:%d+)")
+
+    if AspectRatio ~= nil then
+        local P = "Aspect Ratio =  \t\t\t" .. AspectRatio
+        print(P)
+
+    else 
+        print("Aspect Ratio = \t\t\t---")
+
+    end
+    print("---------------------------------------------------------------------------------------------------------------------------")
+
+-- Estrai il campo "Film Mode"
+    -- FilmMode = exiftool_result:match("%((.-)%)")
+    print(exiftool_result)
+    print("+++++++++++++")
+    FilmMode = exiftool_result:match("Film Mode(.+)")
+
+
+    
+
+    if FilmMode ~= nil then
+        
+        P = "Film Mode =  \t\t\t\t" .. FilmMode
+        print(P)
+    else 
+        print("Film Mode = \t\t\t\t---")
+
+    end
+    print("---------------------------------------------------------------------------------------------------------------------------")
+
 end
+
 
 local function apply_style(image, style_name)
     for _, s in ipairs(dt.styles) do
@@ -183,100 +282,105 @@ local function detect_auto_settings(event, image)
         dt.print_log("[fujifilm_auto_settings] ignoring non-raw image")
         return
     end
+    local exiftool_command = df.check_if_bin_exists("exiftool")
+
+    if not exiftool_command then
+        dt.print_error("[fujifilm_auto_settings] exiftool not found")
+        return
+    end
+
+
+    exiftool_command = string.gsub( exiftool_command , "\\", "/" )
+
     local RAF_filename = df.sanitize_filename(tostring(image))
 
-    local exifdata = exiftool(RAF_filename)
 
-    -- dynamic range mode
-    -- if in DR Auto, the value is saved to Auto Dynamic Range, with a % suffix:
-    local auto_dynamic_range = exifdata["Auto Dynamic Range"]
+    --get metadata immage file
+    exiftool_total_get(exiftool_command, RAF_filename)
+
+
     -- if manually chosen DR, the value is saved to Development Dynamic Range:
-    if auto_dynamic_range == nil then
-        auto_dynamic_range = exifdata["Development Dynamic Range"] .. '%'
+    if AutoDynamicRange == nil then
+        AutoDynamicRange = DevelopmentDynamicRange --file_map["DevelopmentDynamicRange"] 
     end
-    if auto_dynamic_range == "100%" then
+
+    --print(AutoDynamicRange)
+    --AutoDynamicRange = AutoDynamicRange .. '%'
+
+    if AutoDynamicRange == "100%" then
         apply_tag(image, "DR100")
         -- default; no need to change style
-    elseif auto_dynamic_range == "200%" then
-        apply_style(image, "DR200")
+    elseif AutoDynamicRange == "200%" then
+        apply_style(image, "Fujifilm-Autosettings|DR200")
         apply_tag(image, "DR200")
-        dt.print_log("[fujifilm_auto_settings] applying DR200")
-    elseif auto_dynamic_range == "400%" then
-        apply_style(image, "DR400")
+        dt.print_log("[fujifilm_auto_settings] DR200")
+    elseif AutoDynamicRange == "400%" then
+        apply_style(image, "Fujifilm-Autosettings|DR400")
         apply_tag(image, "DR400")
-        dt.print_log("[fujifilm_auto_settings] applying DR400")
+        dt.print_log("[fujifilm_auto_settings] DR400")
     end
 
     -- cropmode
-    local raw_aspect_ratio = exifdata["Raw Image Aspect Ratio"]
-    local raw_orientation = exifdata["Orientation"]
-    if raw_aspect_ratio == "3:2" then
+    if AspectRatio == "3:2" then
         apply_tag(image, "3:2")
         -- default; no need to apply style
-    elseif raw_aspect_ratio == "1:1" then
-        if raw_orientation == "Horizontal (normal)" or raw_orientation == "Rotate 180" then
-            apply_style(image, "square_crop_landscape")
+    elseif AspectRatio == "1:1" then
+        if image.width > image.height then
+            apply_style(image, "Fujifilm-Autosettings|square_crop_landscape")
         else
-            apply_style(image, "square_crop_portrait")
+            apply_style(image, "Fujifilm-Autosettings|square_crop_portrait")
         end
         apply_tag(image, "1:1")
-        dt.print_log("[fujifilm_auto_settings] applying square crop")
-    elseif raw_aspect_ratio == "16:9" then
-        if raw_orientation == "Horizontal (normal)" or raw_orientation == "Rotate 180" then
-            apply_style(image, "sixteen_by_nine_crop_landscape")
+        dt.print_log("[fujifilm_auto_settings] square crop")
+    elseif AspectRatio == "16:9" then
+        if image.width > image.height then
+            apply_style(image, "Fujifilm-Autosettings|sixteen_by_nine_crop_landscape")
         else
-            apply_style(image, "sixteen_by_nine_crop_portrait")
+            apply_style(image, "Fujifilm-Autosettings|sixteen_by_nine_crop_portrait")
         end
         apply_tag(image, "16:9")
-        dt.print_log("[fujifilm_auto_settings] applying 16:9 crop")
+        dt.print_log("[fujifilm_auto_settings] 16:9 crop")
+    end
+    -- filmmode
+    local style_map = {
+        ["Provia"] = "Fujifilm-Autosettings|provia",
+        ["Astia"] = "Fujifilm-Autosettings|astia",
+        ["Classic Chrome"] = "Fujifilm-Autosettings|classic_chrome",
+        ["Eterna"] = "Fujifilm-Autosettings|eterna",
+        ["Acros+G"] = "Fujifilm-Autosettings|acros_green",
+        ["Acros+R"] = "Fujifilm-Autosettings|acros_red",
+        ["Acros+Ye"] = "Fujifilm-Autosettings|acros_yellow",
+        ["Acros"] = "Fujifilm-Autosettings|acros",
+        ["Mono+G"] = "Fujifilm-Autosettings|mono_green",
+        ["Mono+R"] = "Fujifilm-Autosettings|mono_red",
+        ["Mono+Ye"] = "Fujifilm-Autosettings|mono_yellow",
+        ["Mono"] = "Fujifilm-Autosettings|mono",
+        ["Pro Neg Hi"] = "Fujifilm-Autosettings|pro_neg_high",
+        ["Pro Neg Std"] = "Fujifilm-Autosettings|pro_neg_standard",
+        ["Sepia"] = "Fujifilm-Autosettings|sepia",
+        ["Velvia"] = "Fujifilm-Autosettings|velvia",
+    }
+
+
+    for key, value in pairs(style_map) do
+        if string.find(FilmMode, key) then
+            apply_style(image, value)
+            apply_tag(image, key)
+            dt.print_log("[fujifilm_auto_settings] film simulation " .. key)
+        end
     end
 
-    -- filmmode
-    local raw_filmmode = exifdata["Film Mode"]
-    local raw_saturation = exifdata["Saturation"]
-    -- Check if it's a color film mode
-    if raw_filmmode then
-        local style_map = {
-            ["Provia"] = "provia",
-            ["Astia"] = "astia",
-            ["Classic Chrome"] = "classic_chrome",
-            ["Eterna"] = "eterna",
-            ["Pro Neg. Hi"] = "pro_neg_high",
-            ["Pro Neg. Std"] = "pro_neg_standard",
-            ["Velvia"] = "velvia",
-        }
-        for key, value in pairs(style_map) do
-            if string.find(raw_filmmode, key) then
-                apply_style(image, value)
-                apply_tag(image, key)
-                dt.print_log("[fujifilm_auto_settings] applying film simulation " .. key)
-                break
-            end
-        end
-    -- else check if it's a b&w film mode
-    elseif raw_saturation then
-        local style_map = {
-            ["Acros Green Filter"] = "acros_green",
-            ["Acros Red Filter"] = "acros_red",
-            ["Acros Yellow Filter"] = "acros_yellow",
-            ["Acros"] = "acros",
-            ["None (B&W)"] = "mono",
-            ["B&W Green Filter"] = "mono_green",
-            ["B&W Red Filter"] = "mono_red",
-            ["B&W Yellow Filter"] = "mono_yellow",
-            ["B&W Sepia"] = "sepia"
-        }
-        for key, value in pairs(style_map) do
-            if raw_saturation == key then
-                apply_style(image, value)
-                apply_tag(image, key)
-                dt.print_log("[fujifilm_auto_settings] applying B&W film simulation " .. key)
-                break
-            end
-        end
-    else
-        dt.print_log("[fujifilm_auto_settings] neither Film Mode or Saturation EXIF info was found")
-    end
+    --Applico il mio stile 
+    --  Contrasto locale
+    --  Nitidezza
+    apply_style(image, "Gra|Base")
+    --apply_tag(image, "Contrasto locale)
+    --apply_tag(image, "Nitidezza")
+    --apply_tag(image, "Correzzione obiettivo")
+    --apply_tag(image, "Riduzione rumore profilato")
+    --apply_tag(image, "Bilanciamento colore RGB")
+    dt.print_log("Applicato stile Gra|Base")
+
 end
 
 local function detect_auto_settings_multi(event, shortcut)
