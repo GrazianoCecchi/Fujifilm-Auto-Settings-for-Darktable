@@ -38,10 +38,10 @@ The lua plugin calls `exiftool` to read the film simulation, crop
 mode, and DR mode from the RAF file. It then applies one of the
 supplied styles, and sets an appropriate tag.
 
-#### Film Simulations
+Film Simulations
 
 The following styles apply Fuji film simulations from
-https://github.com/bastibe/LUT-Maker:
+<https://github.com/bastibe/LUT-Maker>:
 
 - acros
 - acros\_green
@@ -62,7 +62,7 @@ https://github.com/bastibe/LUT-Maker:
 
 These styles activate *LUT 3D*, and set the appropriate LUT.
 
-#### Crop
+Crop
 
 The following styles apply a 16:9/1:1 crop:
 
@@ -76,7 +76,7 @@ already 2:3.
 
 The crop styles are not pixel-perfect.
 
-#### DR Mode
+DR Mode
 
 The following styles apply for DR200 and DR400:
 
@@ -98,31 +98,32 @@ Of course this can only work for properly exposed images, and even
 then might not be perfectly reliable. But it usually gets the images
 in the right ballpark in my testing.
 
-
-A style called "Gra|Base" is also applied which contains all the default corrections 
-that I have established the imported photos should have. 
+A style called "Gra|Base" is also applied which contains all the default corrections
+that I have established the imported photos should have.
 In my case this style contains
- - Sharpness
- - Lens correction
- - Profiled noise reduction
- - Color balance RGB (with slight contrast and a bit of shine)
- - Local contrast
 
+- Sharpness
+- Lens correction
+- Profiled noise reduction
+- Color balance RGB (with slight contrast and a bit of shine)
+- Local contrast
 
 ## Changelog
 
-2022-07-20 Only call exiftool once, to speed up operation  
-2022-07-20 Added monochrome LUTs and styles  
-2022-07-20 Various fixes by Teh-Lemon  
-2022-07-17 Updated LUTs with correct indexing, for markedly improved colors.
+### Bastian Bechtold
 
--- GRAZIANO LOG. 
+- 2022-07-20 Only call exiftool once, to speed up operation  
+- 2022-07-20 Added monochrome LUTs and styles  
+- 2022-07-20 Various fixes by Teh-Lemon  
+- 2022-07-17 Updated LUTs with correct indexing, for markedly improved colors
 
-2022-07-17 Updated LUTs with correct indexing, for markedly improved colors.
-2024-05-18 Modified command string for windows.
-2024-04-18 Changed calling of styles to group them under a single "Fujiflm-Autosetting" group. 
-2024-04-18 Inserted call for "Gra|Base" style application with default corrections.
-2023-05-23 Changed reading metadata in a single Exiftool call to improve performance.
+### Graziano
+
+- 2022-07-17 Updated LUTs with correct indexing, for markedly improved colors
+- 2024-05-18 Modified command string for windows.
+- 2024-04-18 Changed calling of styles to group them under a single "Fujiflm-Autosetting" group.
+- 2024-04-18 Inserted call for "Gra|Base" style application with default corrections.
+- 2023-05-23 Changed reading metadata in a single Exiftool call to improve performance.
 
 ## Known Issues
 
