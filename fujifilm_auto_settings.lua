@@ -231,12 +231,7 @@ local function exiftool_total_get(exiftool_command, RAF_filename)
 
 -- Estrai il campo "Film Mode"
     -- FilmMode = exiftool_result:match("%((.-)%)")
-    print(exiftool_result)
-    print("+++++++++++++")
     FilmMode = exiftool_result:match("Film Mode(.+)")
-
-
-    
 
     if FilmMode ~= nil then
         
@@ -341,33 +336,36 @@ local function detect_auto_settings(event, image)
         apply_tag(image, "16:9")
         dt.print_log("[fujifilm_auto_settings] 16:9 crop")
     end
-    -- filmmode
-    local style_map = {
-        ["Provia"] = "Fujifilm-Autosettings|provia",
-        ["Astia"] = "Fujifilm-Autosettings|astia",
-        ["Classic Chrome"] = "Fujifilm-Autosettings|classic_chrome",
-        ["Eterna"] = "Fujifilm-Autosettings|eterna",
-        ["Acros+G"] = "Fujifilm-Autosettings|acros_green",
-        ["Acros+R"] = "Fujifilm-Autosettings|acros_red",
-        ["Acros+Ye"] = "Fujifilm-Autosettings|acros_yellow",
-        ["Acros"] = "Fujifilm-Autosettings|acros",
-        ["Mono+G"] = "Fujifilm-Autosettings|mono_green",
-        ["Mono+R"] = "Fujifilm-Autosettings|mono_red",
-        ["Mono+Ye"] = "Fujifilm-Autosettings|mono_yellow",
-        ["Mono"] = "Fujifilm-Autosettings|mono",
-        ["Pro Neg Hi"] = "Fujifilm-Autosettings|pro_neg_high",
-        ["Pro Neg Std"] = "Fujifilm-Autosettings|pro_neg_standard",
-        ["Sepia"] = "Fujifilm-Autosettings|sepia",
-        ["Velvia"] = "Fujifilm-Autosettings|velvia",
-    }
 
-
-    for key, value in pairs(style_map) do
-        if string.find(FilmMode, key) then
-            apply_style(image, value)
-            apply_tag(image, key)
-            dt.print_log("[fujifilm_auto_settings] film simulation " .. key)
+        -- filmmode
+    if FilmMode ~= nil then
+        local style_map = {
+            ["Provia"] = "Fujifilm-Autosettings|provia",
+            ["Astia"] = "Fujifilm-Autosettings|astia",
+            ["Classic Chrome"] = "Fujifilm-Autosettings|classic_chrome",
+            ["Eterna"] = "Fujifilm-Autosettings|eterna",
+            ["Acros+G"] = "Fujifilm-Autosettings|acros_green",
+            ["Acros+R"] = "Fujifilm-Autosettings|acros_red",
+            ["Acros+Ye"] = "Fujifilm-Autosettings|acros_yellow",
+            ["Acros"] = "Fujifilm-Autosettings|acros",
+            ["Mono+G"] = "Fujifilm-Autosettings|mono_green",
+            ["Mono+R"] = "Fujifilm-Autosettings|mono_red",
+            ["Mono+Ye"] = "Fujifilm-Autosettings|mono_yellow",
+            ["Mono"] = "Fujifilm-Autosettings|mono",
+            ["Pro Neg Hi"] = "Fujifilm-Autosettings|pro_neg_high",
+            ["Pro Neg Std"] = "Fujifilm-Autosettings|pro_neg_standard",
+            ["Sepia"] = "Fujifilm-Autosettings|sepia",
+            ["Velvia"] = "Fujifilm-Autosettings|velvia",
+        }
+        for key, value in pairs(style_map) do
+            if string.find(FilmMode, key) then
+                apply_style(image, value)
+                apply_tag(image, key)
+                dt.print_log("[fujifilm_auto_settings] film simulation " .. key)
+            end
         end
+    else
+        print("No Fujifilm film mode")
     end
 
     --Applico il mio stile 

@@ -110,6 +110,7 @@ In my case this style contains
 
 ## Changelog
 
+
 ### Bastian Bechtold
 
 - 2022-07-20 Only call exiftool once, to speed up operation  
@@ -123,7 +124,8 @@ In my case this style contains
 - 2024-05-18 Modified command string for windows.
 - 2024-04-18 Changed calling of styles to group them under a single "Fujiflm-Autosetting" group.
 - 2024-04-18 Inserted call for "Gra|Base" style application with default corrections.
-- 2023-05-23 Changed reading metadata in a single Exiftool call to improve performance.
+- 2023-05-23 Changed reading metadata in aBastian Bechtold single Exiftool call to improve performance.
+- 2023-05-24 Inserted check that avoids error if no film simulation is returned by ExifTool
 
 ## Known Issues
 
